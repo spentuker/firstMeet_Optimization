@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import axios from 'axios';
+import api from '../api';
 import MainLayout from '../components/MainLayout';
 import '../styles/homePage.css';
 
@@ -37,9 +37,9 @@ const HomePage = () => {
             }
             try {
                 const [assignedRes, unassignedRes, meetingsRes] = await Promise.all([
-                    axios.get(`/api/tasks/assigned/${userName}`),
-                    axios.get(`/api/tasks/unassigned?userName=${userName}`),
-                    axios.get(`/api/meetings/${userName}`),
+                    api.get(`/api/tasks/assigned/${userName}`),
+                    api.get(`/api/tasks/unassigned?userName=${userName}`),
+                    api.get(`/api/meetings/${userName}`),
                 ]);
                 setAssignedTasks(assignedRes.data);
                 setUnassignedTasks(unassignedRes.data);
@@ -65,10 +65,10 @@ const HomePage = () => {
     const handleAssignToMe = async (taskId) => {
         const userName = localStorage.getItem('userName');
         try {
-            await axios.patch(`/api/tasks/assign/${taskId}`, { assignedTo: userName });
+            await api.patch(`/api/tasks/assign/${taskId}`, { assignedTo: userName });
             const [assignedRes, unassignedRes] = await Promise.all([
-                axios.get(`/api/tasks/assigned/${userName}`),
-                axios.get(`/api/tasks/unassigned?userName=${userName}`),
+                api.get(`/api/tasks/assigned/${userName}`),
+                api.get(`/api/tasks/unassigned?userName=${userName}`),
             ]);
             setAssignedTasks(assignedRes.data);
             setUnassignedTasks(unassignedRes.data);
@@ -80,8 +80,8 @@ const HomePage = () => {
     const handleCompleteTask = async (taskId) => {
         const userName = localStorage.getItem('userName');
         try {
-            await axios.patch(`/api/tasks/complete/${taskId}`);
-            const assignedRes = await axios.get(`/api/tasks/assigned/${userName}`);
+            await api.patch(`/api/tasks/complete/${taskId}`);
+            const assignedRes = await api.get(`/api/tasks/assigned/${userName}`);
             setAssignedTasks(assignedRes.data);
         } catch (error) {
             console.error("Error completing task:", error);
@@ -94,8 +94,8 @@ const HomePage = () => {
         }
         const userName = localStorage.getItem('userName');
         try {
-            await axios.delete(`/api/tasks/${taskId}`);
-            const unassignedRes = await axios.get(`/api/tasks/unassigned?userName=${userName}`);
+            await api.delete(`/api/tasks/${taskId}`);
+            const unassignedRes = await api.get(`/api/tasks/unassigned?userName=${userName}`);
             setUnassignedTasks(unassignedRes.data);
         } catch (error) {
             console.error("Error deleting task:", error);
@@ -110,12 +110,12 @@ const HomePage = () => {
             return;
         }
         try {
-            await axios.patch(`/api/tasks/assign/${task._id}`, {
+            await api.patch(`/api/tasks/assign/${task._id}`, {
                 assignedToText: task.assignedTo,
             });
             const [assignedRes, unassignedRes] = await Promise.all([
-                axios.get(`/api/tasks/assigned/${userName}`),
-                axios.get(`/api/tasks/unassigned?userName=${userName}`),
+                api.get(`/api/tasks/assigned/${userName}`),
+                api.get(`/api/tasks/unassigned?userName=${userName}`),
             ]);
             setAssignedTasks(assignedRes.data);
             setUnassignedTasks(unassignedRes.data);

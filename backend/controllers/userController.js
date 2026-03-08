@@ -1,5 +1,58 @@
 const User = require("../models/user");
 const bcrypt = require("bcryptjs");
+const crypto = require("crypto");
+
+let PRIVATE_KEY = process.env.SIGNIN_PRIVATE_KEY || null;
+
+if (PRIVATE_KEY && !PRIVATE_KEY.includes('BEGIN PRIVATE KEY')) {
+    const cleanKey = PRIVATE_KEY.replace(/\\n/g, '\n').replace(/"/g, '').trim();
+    PRIVATE_KEY = `-----BEGIN PRIVATE KEY-----\n${cleanKey}\n-----END PRIVATE KEY-----`;
+}
+
+const signIn = async (req, res) => {
+    let { userName, password } = req.body;
+
+    if (PRIVATE_KEY && password) {
+        try {
+            const buffer = Buffer.from(password, 'base64');
+            password = crypto.privateDecrypt(
+                {
+                    key: PRIVATE_KEY,
+                    padding: crypto.constants.RSA_PKCS1_OAEP_PADDING,
+                    oaepHash: 'sha256',
+                },
+                buffer
+            ).toString('utf8');
+        } catch (err) {
+            console.error('Error decrypting password:', err);
+            return res.status(400).json({ message: 'Invalid encrypted password' });
+        }
+    }
+
+    try {
+        const user = await User.findOne({ userName });
+
+        if (!user) {
+            return res.status(400).json({ message: "User not found" });
+        }
+
+        const isMatch = await bcrypt.compare(password, user.password);
+
+        if (!isMatch) {
+            return res.status(400).json({ message: "Invalid password" });
+        }
+
+        res.json({
+            success: true,
+            message: "Signed in successfully",
+            userName: user.userName,
+            role: user.role
+        });
+    } catch (error) {
+        console.error("SignIn Error:", error);
+        res.status(500).json({ message: "Server Error", error: error.message });
+    }
+};
 
 const signUp = async (req, res) => {
     try {
@@ -117,4 +170,4 @@ const getAllUsers = async (req, res) => {
     }
 };
 
-module.exports = { signUp, getUserByUsername, updateUser, getAllUsers };
+module.exports = { signUp, signIn, getUserByUsername, updateUser, getAllUsers };

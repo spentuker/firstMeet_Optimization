@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import axios from 'axios';
+import api from '../api';
 import MainLayout from '../components/MainLayout';
 import '../styles/homePage.css';
 
@@ -19,7 +19,7 @@ const CompletedTasksPage = () => {
                 return;
             }
             try {
-                const res = await axios.get(`/api/tasks/completed/${userName}`);
+                const res = await api.get(`/api/tasks/completed/${userName}`);
                 setCompletedTasks(res.data);
             } catch (error) {
                 console.error('Error fetching completed tasks:', error);

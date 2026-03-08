@@ -1,5 +1,5 @@
 
-import axios from 'axios';
+import api from '../api';
 
 
 export const prepareEmailData = ({ taskId, body, recipient, taskTitle, ccEmail }) => {
@@ -17,7 +17,7 @@ export const prepareEmailData = ({ taskId, body, recipient, taskTitle, ccEmail }
 export const sendEmailToTask = async ({ taskId, body, recipient, taskTitle, ccEmail }) => {
     try {
         const emailData = prepareEmailData({ taskId, body, recipient, taskTitle, ccEmail });
-        const response = await axios.post('/api/email/send', emailData);
+        const response = await api.post('/api/email/send', emailData);
         return {
             success: true,
             message: response.data.message || 'Email sent successfully!',

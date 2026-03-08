@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import axios from 'axios';
+import api from '../api';
 import MainLayout from '../components/MainLayout';
 import '../styles/homePage.css';
 
@@ -19,8 +19,8 @@ const JiraPage = () => {
             if (!userName) return;
             try {
                 const [tasksRes, userRes] = await Promise.all([
-                    axios.get(`/api/tasks/assigned/${userName}`),
-                    axios.get(`/api/users/${userName}`)
+                    api.get(`/api/tasks/assigned/${userName}`),
+                    api.get(`/api/users/${userName}`)
                 ]);
                 setTasks(tasksRes.data);
                 setUserEmail(userRes.data.email);
@@ -49,7 +49,7 @@ const JiraPage = () => {
         setShowModal(false);
 
         try {
-            const response = await axios.post('/api/jira/send', {
+            const response = await api.post('/api/jira/send', {
                 taskId: selectedTask._id,
                 summary: jiraDetails.summary,
                 description: jiraDetails.description,

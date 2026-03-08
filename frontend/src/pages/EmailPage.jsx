@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import axios from 'axios';
+import api from '../api';
 import MainLayout from '../components/MainLayout';
 
 import { sendEmailToTask } from '../services/emailService';
@@ -31,7 +31,7 @@ const EmailPage = () => {
             const userName = localStorage.getItem('userName');
             if (!userName) return;
             try {
-                const res = await axios.get(`/api/tasks/assigned/${userName}`);
+                const res = await api.get(`/api/tasks/assigned/${userName}`);
                 const filtered = res.data.filter(task =>
                     keywords.some(rx => rx.test(task.title))
                 );
@@ -55,7 +55,7 @@ const EmailPage = () => {
 
         try {
 
-            const usersRes = await axios.get('/api/users');
+            const usersRes = await api.get('/api/users');
             const allUsers = usersRes.data;
 
             const title = task.title.toLowerCase();
@@ -85,7 +85,7 @@ const EmailPage = () => {
             } else if (task.assignedBy) {
                 console.log(tasks);
                 console.log(`[EmailPage] No name found in title, falling back to assignedBy "${task.userName}"`);
-                const assignerRes = await axios.get(`/api/users/${task.userName}`);
+                const assignerRes = await api.get(`/api/users/${task.userName}`);
                 if (assignerRes.data && assignerRes.data.email) {
                     setRecipient(assignerRes.data.email);
                     console.log(recipient);
@@ -99,7 +99,7 @@ const EmailPage = () => {
         const userName = localStorage.getItem('userName');
         if (userName) {
             try {
-                const res = await axios.get(`/api/users/${userName}`);
+                const res = await api.get(`/api/users/${userName}`);
                 if (res.data && res.data.email) {
                     setCcEmail(res.data.email);
                 }
@@ -114,7 +114,7 @@ const EmailPage = () => {
         setGenerating(true);
         const descriptionForDraft = notes.trim() || "No additional notes provided.";
         try {
-            const res = await axios.post('/api/email/draft', {
+            const res = await api.post('/api/email/draft', {
                 taskId: selectedTask._id,
                 description: descriptionForDraft,
                 recipient

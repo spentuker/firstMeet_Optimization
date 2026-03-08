@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import axios from 'axios';
+import api from '../api';
 import {
     BarChart, Bar, LineChart, Line, PieChart, Pie, Cell,
     XAxis, YAxis, Tooltip, Legend, ResponsiveContainer, AreaChart, Area,
@@ -33,7 +33,7 @@ const DashboardPage = () => {
         const fetchStats = async () => {
             try {
                 const endpoint = isAdmin ? '/api/analytics/admin' : `/api/analytics/employee?userName=${userName}`;
-                const response = await axios.get(endpoint);
+                const response = await api.get(endpoint);
                 setStats(response.data);
             } catch (error) {
                 console.error("Error fetching analytics:", error);
@@ -95,10 +95,6 @@ const DashboardPage = () => {
                             <div className="kpi-card">
                                 <span className="kpi-label">Success Score</span>
                                 <span className="kpi-value" style={{ color: THEME.blue }}>{stats.kpis.effectivenessScore}<sub style={{ fontSize: '1rem' }}>/100</sub></span>
-                            </div>
-                            <div className="kpi-card">
-                                <span className="kpi-label">Solving Speed</span>
-                                <span className="kpi-value" style={{ color: THEME.sage }}>{stats.kpis.avgResolutionHours} <sub style={{ fontSize: '1rem' }}>HRS</sub></span>
                             </div>
                             <div className="kpi-card">
                                 <span className="kpi-label">Team Balance</span>
@@ -163,7 +159,6 @@ const DashboardPage = () => {
                                                 <th>MEMBER</th>
                                                 <th>YIELD</th>
                                                 <th>PENDING</th>
-                                                <th>SPEED</th>
                                             </tr>
                                         </thead>
                                         <tbody>
@@ -176,7 +171,6 @@ const DashboardPage = () => {
                                                         </div>
                                                     </td>
                                                     <td style={{ color: THEME.slate }}>{m.pending}</td>
-                                                    <td style={{ color: THEME.blue, fontWeight: 700 }}>{m.speed}h</td>
                                                 </tr>
                                             ))}
                                         </tbody>
@@ -184,34 +178,24 @@ const DashboardPage = () => {
                                 </div>
                             </div>
 
-                            <div className="chart-card">
-                                <h3>Main Topics</h3>
-                                <ResponsiveContainer width="100%" height={300}>
-                                    <BarChart data={stats.charts.topicDistribution} layout="vertical">
-                                        <XAxis type="number" hide />
-                                        <YAxis dataKey="name" type="category" width={80} axisLine={false} tickLine={false} style={{ fontSize: '10px', fontWeight: 600 }} />
-                                        <Tooltip cursor={{ fill: '#f1f5f9' }} />
-                                        <Bar dataKey="value" fill={THEME.chartPurple} radius={[0, 4, 4, 0]} barSize={15} />
-                                    </BarChart>
-                                </ResponsiveContainer>
-                            </div>
 
                             <div className="chart-card">
-                                <h3>Team Mood</h3>
+                                <h3>Priority Distribution</h3>
                                 <ResponsiveContainer width="100%" height={300}>
                                     <PieChart>
                                         <Pie
-                                            data={stats.charts.sentimentData}
+                                            data={stats.charts.priorityDistribution}
                                             innerRadius={60}
                                             outerRadius={90}
                                             paddingAngle={8}
                                             dataKey="value"
                                         >
+                                            <Cell fill={THEME.chartRose} />
+                                            <Cell fill={THEME.chartGold} />
                                             <Cell fill={THEME.chartSage} />
-                                            <Cell fill={THEME.danger} />
-                                            <Cell fill="#cbd5e1" />
                                         </Pie>
                                         <Tooltip />
+                                        <Legend />
                                     </PieChart>
                                 </ResponsiveContainer>
                             </div>
@@ -261,22 +245,28 @@ const DashboardPage = () => {
                                 </ResponsiveContainer>
                             </div>
 
-                            <div className="chart-card">
-                                <h3>Work Flow</h3>
-                                <ResponsiveContainer width="100%" height={350}>
-                                    <AreaChart data={stats.charts.throughput}>
-                                        <XAxis dataKey="date" hide />
-                                        <YAxis hide />
-                                        <Tooltip content={<CustomTooltip />} />
-                                        <Area type="stepAfter" dataKey="count" stroke={THEME.chartPurple} strokeWidth={4} fill={THEME.chartPurple} fillOpacity={0.1} />
-                                    </AreaChart>
-                                </ResponsiveContainer>
-                            </div>
 
-                            <div className="chart-card" style={{ display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center' }}>
-                                <span style={{ fontSize: '0.875rem', color: THEME.slate, textTransform: 'uppercase', letterSpacing: '0.2em', fontWeight: 700 }}>Impact Score</span>
-                                <div style={{ fontSize: '7rem', fontWeight: 900, marginBottom: '0.5rem', color: '#111827', lineHeight: 1 }}>{stats.charts.experienceScore}</div>
-                                <div style={{ background: '#fef3c7', color: '#92400e', padding: '0.6rem 2rem', border: '1px solid #fde68a', borderRadius: '100px', fontWeight: 800, fontSize: '0.75rem', letterSpacing: '0.05em' }}>LEADERSHIP TIER</div>
+                            <div className="chart-card">
+                                <h3>Priority Distribution</h3>
+                                <ResponsiveContainer width="100%" height={250}>
+                                    <PieChart>
+                                        <Pie
+                                            data={stats.charts.priorityDistribution}
+                                            cx="50%"
+                                            cy="50%"
+                                            innerRadius={50}
+                                            outerRadius={80}
+                                            paddingAngle={5}
+                                            dataKey="value"
+                                        >
+                                            <Cell fill={THEME.chartRose} />
+                                            <Cell fill={THEME.chartGold} />
+                                            <Cell fill={THEME.chartSage} />
+                                        </Pie>
+                                        <Tooltip />
+                                        <Legend />
+                                    </PieChart>
+                                </ResponsiveContainer>
                             </div>
 
                             <div className="chart-card full-width">

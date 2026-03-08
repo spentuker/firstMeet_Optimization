@@ -33,57 +33,27 @@ exports.getAdminStats = async (req, res) => {
             return { date, created, resolved };
         });
 
-        // 2. Refined Topic Distribution
-        const topicMap = {
-            Sprint: ["sprint", "agile", "standup", "velocity"],
-            Client: ["client", "customer", "external", "vendor"],
-            Design: ["design", "ui", "ux", "frontend", "mockup"],
-            Backend: ["api", "database", "server", "backend", "node"],
-            Bug: ["fix", "bug", "issue", "debug", "error"],
-            Planning: ["roadmap", "planning", "strategy", "vision"]
-        };
-        const topicDistribution = Object.entries(topicMap).map(([name, keywords]) => ({
-            name,
-            value: meetings.filter(m => {
-                const text = (m.title + (m.summary || "")).toLowerCase();
-                return keywords.some(k => text.includes(k));
-            }).length
-        })).filter(t => t.value > 0);
+        // 2. Pending Count
+        const pendingCount = allTasks.filter(t => !t.isCompleted).length;
 
-        // 3. Sentiment Analysis
-        const sentimentKeywords = {
-            Positive: ["success", "solved", "fixed", "completed", "great", "launch", "done"],
-            Risk: ["delay", "error", "blocker", "critical", "danger", "urgent", "failed"],
-            Neutral: ["update", "discussion", "planning", "review", "sync", "meeting"]
-        };
-        const sentimentData = [
-            { name: 'Positive', value: 0 },
-            { name: 'Risk', value: 0 },
-            { name: 'Neutral', value: 0 }
+        // 3. Priority Distribution
+        const priorityDistribution = [
+            { name: 'HIGH', value: allTasks.filter(t => t.priority === 'HIGH').length },
+            { name: 'MEDIUM', value: allTasks.filter(t => t.priority === 'MEDIUM').length },
+            { name: 'LOW', value: allTasks.filter(t => t.priority === 'LOW').length }
         ];
-        meetings.forEach(m => {
-            const text = ((m.summary || "") + m.title).toLowerCase();
-            if (sentimentKeywords.Positive.some(k => text.includes(k))) sentimentData[0].value++;
-            else if (sentimentKeywords.Risk.some(k => text.includes(k))) sentimentData[1].value++;
-            else sentimentData[2].value++;
-        });
 
         // 4. Member Performance Matrix
         const memberMatrix = users.map(user => {
             const userTasks = allTasks.filter(t => t.assignedTo === user.userName);
             const completedCount = userTasks.filter(t => t.isCompleted).length;
             const pendingCount = userTasks.length - completedCount;
-            const completedWithTime = userTasks.filter(t => t.isCompleted && t.updatedAt > t.createdAt);
-            const avgSpeed = completedWithTime.length > 0
-                ? completedWithTime.reduce((acc, t) => acc + (t.updatedAt - t.createdAt), 0) / (1000 * 60 * 60 * completedWithTime.length)
-                : 0;
 
             return {
                 name: user.userName,
                 completed: completedCount,
                 pending: pendingCount,
                 ratio: userTasks.length > 0 ? Math.round((completedCount / userTasks.length) * 100) : 0,
-                speed: Math.round(avgSpeed)
             };
         }).sort((a, b) => b.ratio - a.ratio);
 
@@ -97,14 +67,13 @@ exports.getAdminStats = async (req, res) => {
                 totalMeetings,
                 completionRate: calculateCompletionRate(allTasks),
                 monthlyGrowth: 15,
-                avgResolutionHours: memberMatrix.length > 0 ? Math.round(memberMatrix.reduce((acc, m) => acc + m.speed, 0) / memberMatrix.length) : 0,
                 effectivenessScore,
                 globalFocusScore: 82
             },
             charts: {
                 lifecycle,
-                topicDistribution,
-                sentimentData,
+                pendingCount,
+                priorityDistribution,
                 memberMatrix,
                 workloadBalance: memberMatrix.slice(0, 5).map(m => ({ name: m.name, pending: m.pending })),
                 jiraVsLocal: [
@@ -151,6 +120,16 @@ exports.getEmployeeStats = async (req, res) => {
             count: completedTasks.filter(t => t.updatedAt.toISOString().split('T')[0] === date).length
         }));
 
+        // 4. Priority Distribution
+        const priorityDistribution = [
+            { name: 'HIGH', value: myTasks.filter(t => t.priority === 'HIGH').length },
+            { name: 'MEDIUM', value: myTasks.filter(t => t.priority === 'MEDIUM').length },
+            { name: 'LOW', value: myTasks.filter(t => t.priority === 'LOW').length }
+        ];
+
+        // 5. Pending Count
+        const pendingCount = myTasks.filter(t => !t.isCompleted).length;
+
         res.json({
             kpis: {
                 openTasks: myTasks.filter(t => !t.isCompleted).length,
@@ -160,6 +139,8 @@ exports.getEmployeeStats = async (req, res) => {
             },
             charts: {
                 productivityByDay,
+                priorityDistribution,
+                pendingCount,
                 priorityMatrix,
                 throughput,
                 experienceScore: (completedTasks.length * 100) + (myTasks.length * 10),

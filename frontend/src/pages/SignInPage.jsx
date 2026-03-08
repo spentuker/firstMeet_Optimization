@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
-import axios from 'axios';
+import { rootApi } from '../api';
 import '../styles/signInPage.css';
 
 
@@ -57,7 +57,7 @@ const SignInPage = () => {
         e.preventDefault();
         try {
             const encryptedPassword = await encryptPassword(password);
-            const response = await axios.post('/signIn', { userName, password: encryptedPassword });
+            const response = await rootApi.post('/signIn', { userName, password: encryptedPassword });
             if (response.data.success) {
                 localStorage.setItem('userName', response.data.userName);
                 localStorage.setItem('userRole', response.data.role);

@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import axios from 'axios';
+import api from '../api';
 import MainLayout from '../components/MainLayout';
 
 const MeetingPage = () => {
@@ -68,7 +68,7 @@ const MeetingPage = () => {
         formData.append("prompt", prompt);
 
         try {
-            const response = await axios.post("/ask", formData, {
+            const response = await api.post("/ask", formData, {
                 headers: { "Content-Type": "multipart/form-data" }
             });
 
@@ -138,7 +138,7 @@ const MeetingPage = () => {
             const savedItems = await Promise.all(
                 finalItems.map(async (item) => {
                     try {
-                        const res = await axios.post('/api/tasks', {
+                        const res = await api.post('/api/tasks', {
                             title: item.title,
                             userName,
                             assignedTo: item.assignedTo || "",
@@ -158,7 +158,7 @@ const MeetingPage = () => {
 
             if (userName) {
                 try {
-                    await axios.post('/api/meetings', {
+                    await api.post('/api/meetings', {
                         title: meetingTitle || "Untitled Meeting",
                         userName,
                         summary: summaryText.trim(),
@@ -183,7 +183,7 @@ const MeetingPage = () => {
             return;
         }
         try {
-            await axios.patch(`/api/tasks/assign/${item._id}`, {
+            await api.patch(`/api/tasks/assign/${item._id}`, {
                 assignedToText: item.assignedTo,
             });
 
@@ -201,7 +201,7 @@ const MeetingPage = () => {
     const handleDelete = async (item, index) => {
         if (item._id) {
             try {
-                await axios.delete(`/api/tasks/${item._id}`);
+                await api.delete(`/api/tasks/${item._id}`);
             } catch (err) {
                 console.error("Failed to delete task from DB:", err);
             }

@@ -1,27 +1,4 @@
-[dotenv@17.3.1] injecting env (12) from .env -- tip: ⚙️  enable debug logging with { debug: true }
+nohup: ignoring input
+[dotenv@17.3.1] injecting env (14) from .env -- tip: ⚙️  enable debug logging with { debug: true }
 Server running on port 5000
-MongoDB Connected: ac-uv4vhgc-shard-00-01.5dby58b.mongodb.net
-[Jira] Searching for accountId or user with email: gayathri.gottumukala@darwinbox.io
-[Jira] Found Jira accountId 712020:e9bab7af-6268-4dad-b7cd-b2fa06313d05 for email gayathri.gottumukala@darwinbox.io
-[Jira] Creating issue, assignee accountId: 712020:e9bab7af-6268-4dad-b7cd-b2fa06313d05
-[Jira] Issue created: KAN-22
-[Jira] Searching for accountId or user with email: gayathri.gottumukala@darwinbox.io
-[Jira] Found Jira accountId 712020:e9bab7af-6268-4dad-b7cd-b2fa06313d05 for email gayathri.gottumukala@darwinbox.io
-[Jira] Creating issue, assignee accountId: 712020:e9bab7af-6268-4dad-b7cd-b2fa06313d05
-[Jira] Issue created: KAN-23
-(node:110197) [MONGOOSE] Warning: mongoose: the `new` option for `findOneAndUpdate()` and `findOneAndReplace()` is deprecated. Use `returnDocument: 'after'` instead.
-(Use `node --trace-warnings ...` to show where the warning was created)
-Error: ENOENT: no such file or directory, stat '/home/gayathri.gottumukala/meetUp/backend/frontend/dist/index.html'
-Error: ENOENT: no such file or directory, stat '/home/gayathri.gottumukala/meetUp/backend/frontend/dist/index.html'
-(node:110197) [MONGOOSE] Warning: mongoose: the `new` option for `findOneAndUpdate()` and `findOneAndReplace()` is deprecated. Use `returnDocument: 'after'` instead.
-(node:110197) [MONGOOSE] Warning: mongoose: the `new` option for `findOneAndUpdate()` and `findOneAndReplace()` is deprecated. Use `returnDocument: 'after'` instead.
-(node:110197) [MONGOOSE] Warning: mongoose: the `new` option for `findOneAndUpdate()` and `findOneAndReplace()` is deprecated. Use `returnDocument: 'after'` instead.
-Incoming API request body: {
-  email: 'kavyaperepu@gmail.com',
-  password: 'gayathri',
-  firstName: 'Kavya',
-  lastName: 'Perepu',
-  role: 'admin'
-}
-(node:110197) [MONGOOSE] Warning: mongoose: the `new` option for `findOneAndUpdate()` and `findOneAndReplace()` is deprecated. Use `returnDocument: 'after'` instead.
-(node:110197) [MONGOOSE] Warning: mongoose: the `new` option for `findOneAndUpdate()` and `findOneAndReplace()` is deprecated. Use `returnDocument: 'after'` instead.
+MongoDB Connected: ac-uv4vhgc-shard-00-00.5dby58b.mongodb.net
