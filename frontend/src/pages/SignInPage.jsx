@@ -73,52 +73,48 @@ const SignInPage = () => {
 
     return (
         <div className="auth-wrapper">
-            <div className="auth-card">
+            <div className="auth-card glass-card">
                 <header className="auth-header">
-                    <h1 className="auth-title">Welcome Back</h1>
-                    <p className="auth-subtitle">
-                        Sign in to your MeetUp account
-                    </p>
+                    <span className="auth-logo">MeetUp ⚡</span>
+                    <h1 className="auth-title">Welcome back</h1>
+                    <p className="auth-subtitle">Sign in to your account</p>
                 </header>
 
                 <form onSubmit={handleSubmit}>
-                    <div className="form-group mb-24">
-                        <label className="label-main" htmlFor="userName">
-                            Username
-                        </label>
+                    <div className="form-group" style={{ marginBottom: '1.25rem' }}>
+                        <label className="label-main" htmlFor="userName">Username</label>
                         <input
                             type="text"
                             id="userName"
                             className="input-field"
-
+                            placeholder="Enter your username"
                             value={userName}
                             onChange={(e) => setUserName(e.target.value)}
                             required
                         />
                     </div>
 
-                    <div className="form-group mb-32">
-                        <label className="label-main" htmlFor="password">
-                            Password
-                        </label>
+                    <div className="form-group" style={{ marginBottom: '2rem' }}>
+                        <label className="label-main" htmlFor="password">Password</label>
                         <input
                             type="password"
                             id="password"
                             className="input-field"
+                            placeholder="••••••••"
                             value={password}
                             onChange={(e) => setPassword(e.target.value)}
                             required
                         />
                     </div>
 
-                    <button type="submit" className="btn-primary" style={{ marginTop: '1.5rem' }}>
-                        Sign In
+                    <button type="submit" className="btn-primary">
+                        Sign In →
                     </button>
                 </form>
 
-                <p className="auth-footer-text">
-                    Don't have an account?{" "}
-                    <Link to="/signup" className="auth-link">
+                <p style={{ textAlign: 'center', marginTop: '1.5rem', color: 'var(--text-muted)', fontSize: '0.875rem' }}>
+                    Don't have an account?{' '}
+                    <Link to="/signup" style={{ color: 'var(--accent-color)', fontWeight: '600' }}>
                         Sign Up
                     </Link>
                 </p>

@@ -62,6 +62,28 @@ exports.getAdminStats = async (req, res) => {
         const resolutionRatio = totalActionItems > 0 ? (allTasks.filter(t => t.isCompleted).length / totalActionItems) : 0;
         const effectivenessScore = Math.round((resolutionRatio * 70) + (Math.min(totalMeetings, 100) * 0.3));
 
+        // 6. Meeting frequency by week (last 8 weeks)
+        const getWeekStart = (weeksAgo) => {
+            const d = new Date();
+            d.setHours(0, 0, 0, 0);
+            d.setDate(d.getDate() - d.getDay() - weeksAgo * 7);
+            return d;
+        };
+        const meetingsByWeek = Array.from({ length: 8 }, (_, i) => {
+            const weeksAgo = 7 - i;
+            const weekStart = getWeekStart(weeksAgo);
+            const weekEnd = new Date(weekStart);
+            weekEnd.setDate(weekEnd.getDate() + 7);
+            const label = weekStart.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+            return {
+                week: label,
+                count: meetings.filter(m => {
+                    const d = new Date(m.createdAt);
+                    return d >= weekStart && d < weekEnd;
+                }).length
+            };
+        });
+
         res.json({
             kpis: {
                 totalMeetings,
@@ -75,6 +97,7 @@ exports.getAdminStats = async (req, res) => {
                 pendingCount,
                 priorityDistribution,
                 memberMatrix,
+                meetingsByWeek,
                 workloadBalance: memberMatrix.slice(0, 5).map(m => ({ name: m.name, pending: m.pending })),
                 jiraVsLocal: [
                     { name: "Jira", value: allTasks.filter(t => t.jiraId).length },
@@ -135,7 +158,8 @@ exports.getEmployeeStats = async (req, res) => {
                 openTasks: myTasks.filter(t => !t.isCompleted).length,
                 completedRatio: calculateCompletionRate(myTasks),
                 streak: new Set(completedTasks.map(t => t.updatedAt.toISOString().split('T')[0])).size,
-                personalImpact: Math.round((completedTasks.length * 10) + (myMeetings.length * 5))
+                personalImpact: Math.round((completedTasks.length * 10) + (myMeetings.length * 5)),
+                meetingsAttended: myMeetings.length
             },
             charts: {
                 productivityByDay,

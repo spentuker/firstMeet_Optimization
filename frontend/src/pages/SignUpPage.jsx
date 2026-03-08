@@ -30,7 +30,8 @@ const SignUpPage = () => {
         <div className="auth-wrapper">
             <div className="auth-card glass-card">
                 <header className="auth-header">
-                    <h1 className="auth-title">Create Account</h1>
+                    <span className="auth-logo">MeetUp ⚡</span>
+                    <h1 className="auth-title">Create account</h1>
                     <p className="auth-subtitle">Join MeetUp to start generating minutes</p>
                 </header>
 

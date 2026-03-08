@@ -1,7 +1,8 @@
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import api from '../api';
 import MainLayout from '../components/MainLayout';
+import '../styles/homePage.css';
 
 const MeetingPage = () => {
     const [meetingTitle, setMeetingTitle] = useState('');
@@ -12,9 +13,19 @@ const MeetingPage = () => {
     const [showResults, setShowResults] = useState(false);
     const navigate = useNavigate();
 
-    const onSubmit = async () => {
-        if (!file) {
-            alert("Please Upload a Word File");
+    // ── Recording state ──
+    const [isRecording, setIsRecording]       = useState(false);
+    const [liveTranscript, setLiveTranscript] = useState('');
+    const [recordingError, setRecordingError] = useState('');
+    const [recordingSeconds, setRecordingSeconds] = useState(0);
+    const recognitionRef     = useRef(null);
+    const timerRef           = useRef(null);
+    const finalTranscriptRef = useRef('');
+
+    const onSubmit = async (fileOverride = null) => {
+        const activeFile = fileOverride || file;
+        if (!activeFile) {
+            alert("Please upload a transcript file or use the recorder below.");
             return;
         }
 
@@ -64,7 +75,7 @@ const MeetingPage = () => {
         `;
 
         const formData = new FormData();
-        formData.append("file", file);
+        formData.append("file", activeFile);
         formData.append("prompt", prompt);
 
         try {
@@ -209,6 +220,58 @@ const MeetingPage = () => {
         setActionItems(prev => prev.filter((_, i) => i !== index));
     };
 
+    // ── Recording functions ──
+    const startRecording = () => {
+        const SpeechRec = window.SpeechRecognition || window.webkitSpeechRecognition;
+        if (!SpeechRec) {
+            setRecordingError('Speech recognition is not supported in this browser. Please use Chrome or Edge.');
+            return;
+        }
+        const recognition = new SpeechRec();
+        recognition.continuous    = true;
+        recognition.interimResults = true;
+        recognition.lang          = 'en-US';
+        finalTranscriptRef.current = '';
+
+        recognition.onresult = (event) => {
+            let interim = '';
+            for (let i = event.resultIndex; i < event.results.length; i++) {
+                if (event.results[i].isFinal) {
+                    finalTranscriptRef.current += event.results[i][0].transcript + ' ';
+                } else {
+                    interim += event.results[i][0].transcript;
+                }
+            }
+            setLiveTranscript(finalTranscriptRef.current + interim);
+        };
+        recognition.onerror = (e) => setRecordingError(`Recognition error: ${e.error}`);
+        recognition.onend   = () => { setIsRecording(false); clearInterval(timerRef.current); };
+
+        recognition.start();
+        recognitionRef.current = recognition;
+        setIsRecording(true);
+        setLiveTranscript('');
+        setRecordingError('');
+        setRecordingSeconds(0);
+        timerRef.current = setInterval(() => setRecordingSeconds(s => s + 1), 1000);
+    };
+
+    const stopRecording = () => {
+        if (recognitionRef.current) recognitionRef.current.stop();
+        clearInterval(timerRef.current);
+        setIsRecording(false);
+    };
+
+    const analyzeRecording = async () => {
+        const text = (finalTranscriptRef.current || liveTranscript).trim();
+        if (!text) { alert('No transcript captured yet. Please speak during recording.'); return; }
+        const blob = new Blob([text], { type: 'text/plain' });
+        const transcriptFile = new File([blob], 'recording-transcript.txt', { type: 'text/plain' });
+        await onSubmit(transcriptFile);
+    };
+
+    const fmt = (s) => `${String(Math.floor(s / 60)).padStart(2, '0')}:${String(s % 60).padStart(2, '0')}`;
+
     return (
         <MainLayout>
             <div className="content-area">
@@ -243,6 +306,55 @@ const MeetingPage = () => {
                             {loading ? "Processing..." : "Generate Insights"}
                         </button>
                     </form>
+                </div>
+
+                {/* ── Recording Section ── */}
+                <div className="task-box glass-card recording-section">
+                    <div className="recording-header">
+                        <h3>🎤 Record Live Meeting</h3>
+                        <p>Speak during your meeting — we'll transcribe and analyze it automatically.</p>
+                    </div>
+
+                    <div className="recording-controls">
+                        {!isRecording ? (
+                            <button className="btn-record" onClick={startRecording} disabled={loading}>
+                                🎤 Start Recording
+                            </button>
+                        ) : (
+                            <button className="btn-record active" onClick={stopRecording}>
+                                ⏹ Stop&nbsp;&nbsp;<span className="rec-timer">{fmt(recordingSeconds)}</span>
+                            </button>
+                        )}
+
+                        {liveTranscript && !isRecording && (
+                            <button
+                                className="btn-primary"
+                                onClick={analyzeRecording}
+                                disabled={loading}
+                                style={{ marginLeft: '0.75rem' }}
+                            >
+                                {loading ? 'Analyzing...' : '✨ Analyze Recording'}
+                            </button>
+                        )}
+                    </div>
+
+                    {isRecording && (
+                        <div className="recording-live">
+                            <span className="rec-dot" />
+                            Recording in progress — speak clearly into your microphone
+                        </div>
+                    )}
+
+                    {liveTranscript && (
+                        <div className="transcript-box">
+                            <label className="label-main">Live Transcript</label>
+                            <div className="transcript-text">{liveTranscript}</div>
+                        </div>
+                    )}
+
+                    {recordingError && (
+                        <p className="recording-error">⚠️ {recordingError}</p>
+                    )}
                 </div>
 
                 {showResults && (

@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import api from '../api';
 import MainLayout from '../components/MainLayout';
-
+import '../styles/homePage.css';
 import { sendEmailToTask } from '../services/emailService';
 
 const EmailPage = () => {
