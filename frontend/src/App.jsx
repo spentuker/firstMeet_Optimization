@@ -6,6 +6,7 @@ import MeetingPage from './pages/MeetingPage';
 import JiraPage from './pages/JiraPage';
 import CompletedTasksPage from './pages/CompletedTasksPage';
 import EmailPage from './pages/EmailPage';
+import DashboardPage from './pages/DashboardPage';
 import './App.css';
 
 function App() {
@@ -19,6 +20,7 @@ function App() {
         <Route path="/completed" element={<CompletedTasksPage />} />
         <Route path="/jira" element={<JiraPage />} />
         <Route path="/email" element={<EmailPage />} />
+        <Route path="/analytics" element={<DashboardPage />} />
         <Route path="/" element={<Navigate to="/signin" replace />} />
       </Routes>
     </Router>

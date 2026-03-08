@@ -1,6 +1,6 @@
 const Meeting = require("../models/meeting");
 
-// Save a new meeting
+
 exports.createMeeting = async (req, res) => {
     try {
         const { title, userName, summary, actionItems } = req.body;
@@ -13,7 +13,7 @@ exports.createMeeting = async (req, res) => {
     }
 };
 
-// Get all meetings for a user
+
 exports.getMeetingsByUser = async (req, res) => {
     try {
         const { userName } = req.params;

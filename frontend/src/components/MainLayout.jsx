@@ -26,16 +26,22 @@ const MainLayout = ({ children, activeTab, setActiveTab }) => {
         <div className="home-layout">
             <aside className="sidebar">
                 <div className="sidebar-brand">
-                  
+
                     <span className="sidebar-title">MeetUp</span>
                 </div>
 
                 <nav className="sidebar-nav">
                     <button
+                        className={`nav-item ${location.pathname === '/analytics' ? 'nav-active' : ''}`}
+                        onClick={() => navigate('/analytics')}
+                    >
+                        <span>Analytics</span>
+                    </button>
+                    <button
                         className={`nav-item ${(location.pathname === '/home' && activeTab === 'tasks') ? 'nav-active' : ''}`}
                         onClick={() => handleTabClick('tasks')}
                     >
-                       
+
                         <span>Tasks</span>
                     </button>
                     <button
@@ -48,14 +54,13 @@ const MainLayout = ({ children, activeTab, setActiveTab }) => {
                         className={`nav-item ${location.pathname === '/completed' ? 'nav-active' : ''}`}
                         onClick={() => navigate('/completed')}
                     >
-                        
+
                         <span>Completed</span>
                     </button>
                     <button
                         className={`nav-item ${location.pathname === '/jira' ? 'nav-active' : ''}`}
                         onClick={() => navigate('/jira')}
                     >
-                        
                         <span>Jira</span>
                     </button>
                     <button

@@ -52,6 +52,7 @@ const MeetingPage = () => {
         - Deadline: Deadline (if mentioned; otherwise write "Not specified")
         - Priority: Evaluate priority using:
           1. Urgency — deadlines or immediate action required
+          
           2. Impact — effect on project or team progress
           3. Dependency — whether other work depends on it
           4. Business importance — delivery, users, or decisions affected
@@ -83,7 +84,6 @@ const MeetingPage = () => {
             let actionText = "";
 
             if (summaryIndex !== -1 && actionIndex !== -1) {
-                // Determine order
                 if (summaryIndex < actionIndex) {
                     summaryText = data.substring(summaryIndex + summaryMarker.length, actionIndex).trim();
                     actionText = data.substring(actionIndex + actionMarker.length).trim();
@@ -92,7 +92,6 @@ const MeetingPage = () => {
                     summaryText = data.substring(summaryIndex + summaryMarker.length).trim();
                 }
             } else {
-                // Fallback for older format or if one marker is missing
                 const parts = data.split(/ACTION ITEMS|\[\[ACTION_ITEMS\]\]/i);
                 summaryText = (parts[0] || "").replace(/\[\[SUMMARY\]\]|SECTION 1: SUMMARY/gi, "").trim();
                 actionText = (parts[1] || "").trim();
@@ -231,7 +230,7 @@ const MeetingPage = () => {
                         </div>
 
                         <div className="form-group" style={{ marginBottom: '2rem' }}>
-                            <label className="label-main">Transcript File (.txt, .docx)</label>
+                            <label className="label-main">Transcript File (.txt,.docx)</label>
                             <input
                                 type="file"
                                 className="input-field"

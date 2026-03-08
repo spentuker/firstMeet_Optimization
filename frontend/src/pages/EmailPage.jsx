@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import axios from 'axios';
 import MainLayout from '../components/MainLayout';
+
 import { sendEmailToTask } from '../services/emailService';
 
 const EmailPage = () => {
@@ -9,6 +10,7 @@ const EmailPage = () => {
     const [selectedTask, setSelectedTask] = useState(null);
     const [notes, setNotes] = useState('');
     const [recipient, setRecipient] = useState('');
+    const [ccEmail, setCcEmail] = useState('');
     const [draft, setDraft] = useState('');
     const [generating, setGenerating] = useState(false);
     const [sending, setSending] = useState(false);
@@ -20,7 +22,6 @@ const EmailPage = () => {
 
     const keywords = [/email/i, /gmail/i, /mail/i];
 
-    // Save sentTasks to localStorage whenever it changes
     useEffect(() => {
         localStorage.setItem('sentEmailTasks', JSON.stringify(sentTasks));
     }, [sentTasks]);
@@ -44,19 +45,80 @@ const EmailPage = () => {
         fetchAssigned();
     }, []);
 
-    const handleStart = (task) => {
+    const handleStart = async (task) => {
         setSelectedTask(task);
         setNotes('');
         setRecipient('');
+        setCcEmail('');
         setDraft('');
         setEmailSent(false);
+
+        try {
+
+            const usersRes = await axios.get('/api/users');
+            const allUsers = usersRes.data;
+
+            const title = task.title.toLowerCase();
+            let foundUser = null;
+
+
+            for (const u of allUsers) {
+                const fname = (u.firstName || '').toLowerCase();
+                const lname = (u.lastName || '').toLowerCase();
+                const uname = (u.userName || '').toLowerCase();
+
+                const nameInTitle = (name) => {
+                    if (!name || name.length < 2) return false;
+                    const regex = new RegExp(`\\b${name.toLowerCase()}\\b`, 'i');
+                    return regex.test(title);
+                };
+
+                if (nameInTitle(fname) || nameInTitle(lname) || nameInTitle(uname)) {
+                    foundUser = u;
+                    break;
+                }
+            }
+
+            if (foundUser) {
+                console.log(`[EmailPage] Found user "${foundUser.userName}" in task title`);
+                setRecipient(foundUser.email);
+            } else if (task.assignedBy) {
+                console.log(tasks);
+                console.log(`[EmailPage] No name found in title, falling back to assignedBy "${task.userName}"`);
+                const assignerRes = await axios.get(`/api/users/${task.userName}`);
+                if (assignerRes.data && assignerRes.data.email) {
+                    setRecipient(assignerRes.data.email);
+                    console.log(recipient);
+                }
+            }
+        } catch (err) {
+            console.error("Error determining recipient:", err);
+        }
+
+
+        const userName = localStorage.getItem('userName');
+        if (userName) {
+            try {
+                const res = await axios.get(`/api/users/${userName}`);
+                if (res.data && res.data.email) {
+                    setCcEmail(res.data.email);
+                }
+            } catch (err) {
+                console.error("Error fetching current user email:", err);
+            }
+        }
     };
 
     const handleGenerate = async () => {
-        if (!selectedTask || !notes.trim() || !recipient.trim()) return;
+        if (!selectedTask || !recipient.trim()) return;
         setGenerating(true);
+        const descriptionForDraft = notes.trim() || "No additional notes provided.";
         try {
-            const res = await axios.post('/api/email/draft', { taskId: selectedTask._id, description: notes, recipient });
+            const res = await axios.post('/api/email/draft', {
+                taskId: selectedTask._id,
+                description: descriptionForDraft,
+                recipient
+            });
             setDraft(res.data.draft);
         } catch (err) {
             console.error('Draft error', err);
@@ -67,25 +129,30 @@ const EmailPage = () => {
     };
 
     const handleSend = async () => {
-        if (!selectedTask || !draft.trim()) return;
+        if (!selectedTask || !draft.trim() || !recipient.trim()) return;
+
         setSending(true);
         try {
-            const result = await sendEmailToTask(selectedTask._id, draft, recipient);
-            
+            const result = await sendEmailToTask({
+                taskId: selectedTask._id,
+                body: draft,
+                recipient,
+                taskTitle: selectedTask.title,
+                ccEmail
+            });
+
             if (result.success) {
-                alert(`✓ ${result.message}\nSent to: ${result.to}`);
+                alert(`${result.message}\nSent to: ${result.to}`);
                 setEmailSent(true);
                 setSentTasks([...sentTasks, selectedTask._id]);
-                setDraft('');
                 setNotes('');
-                setRecipient('');
             } else {
-                alert(`✗ Failed to send email\n${result.message}`);
-                console.error('Email send error:', result.error);
+                alert(`Failed to send email\n${result.message}`);
+                console.error('Email send failure:', result.error);
             }
         } catch (err) {
-            console.error('Send error', err);
-            alert('Failed to send email - see console for details');
+            console.error('Unexpected error in handleSend:', err);
+            alert('An unexpected error occurred. Please check the console.');
         } finally {
             setSending(false);
         }
@@ -109,8 +176,8 @@ const EmailPage = () => {
                                     <strong>{task.title}</strong>
                                     {task.assignedBy && <p>Assigned by: {task.assignedBy}</p>}
                                 </div>
-                                <button 
-                                    className="small-assign-btn" 
+                                <button
+                                    className="small-assign-btn"
                                     onClick={() => handleStart(task)}
                                     disabled={sentTasks.includes(task._id)}
                                     style={{
@@ -119,7 +186,7 @@ const EmailPage = () => {
                                         cursor: sentTasks.includes(task._id) ? 'not-allowed' : 'pointer'
                                     }}
                                 >
-                                    {sentTasks.includes(task._id) ? '✓ Sent' : 'Send'}
+                                    {sentTasks.includes(task._id) ? 'Sent' : 'Send'}
                                 </button>
                             </li>
                         ))}
@@ -129,49 +196,85 @@ const EmailPage = () => {
                 {selectedTask && (
                     <div className="email-draft-box">
                         <h3>Compose Email for: {selectedTask.title}</h3>
-                        {draft ? (
+
+                        {!draft ? (
                             <>
-                                <textarea
-                                    rows={8}
-                                    value={draft}
-                                    onChange={e => setDraft(e.target.value)}
-                                />
-                                <button 
-                                    onClick={handleSend} 
-                                    disabled={sending || emailSent} 
-                                    className="small-assign-btn"
-                                    style={{ 
-                                        backgroundColor: emailSent ? '#4ade80' : undefined,
-                                        borderColor: emailSent ? '#4ade80' : undefined,
-                                        cursor: emailSent ? 'not-allowed' : 'pointer'
-                                    }}
-                                >
-                                    {sending ? 'Sending...' : emailSent ? '✓ Sent' : 'Send Email'}
-                                </button>
-                                <button onClick={() => setSelectedTask(null)} className="small-assign-btn">
-                                    {emailSent ? 'Close' : 'Cancel'}
-                                </button>
+                                <div className="classy-form-group">
+                                    <label className="classy-label">Recipient Email</label>
+                                    <input
+                                        placeholder="Recipient's email address"
+                                        className="classy-input"
+                                        value={recipient}
+                                        onChange={e => setRecipient(e.target.value)}
+                                        style={{ width: '100%', marginBottom: '0.75rem' }}
+                                    />
+                                </div>
+                                <div className="classy-form-group">
+                                    <label className="classy-label">CC Email</label>
+                                    <input
+                                        placeholder="email address"
+                                        className="classy-input"
+                                        value={ccEmail}
+                                        onChange={e => setCcEmail(e.target.value)}
+                                        style={{ width: '100%', marginBottom: '0.75rem' }}
+                                    />
+                                </div>
+                                <div className="classy-form-group">
+                                    <label className="classy-label">Notes for Email</label>
+                                    <textarea
+                                        placeholder="Enter key points for the email..."
+                                        className="classy-input"
+                                        rows={6}
+                                        value={notes}
+                                        onChange={e => setNotes(e.target.value)}
+                                    />
+                                </div>
+                                <div className="classy-actions" style={{ marginTop: '1rem' }}>
+                                    <button onClick={() => setSelectedTask(null)} className="btn-classy-secondary">
+                                        Cancel
+                                    </button>
+                                    <button
+                                        onClick={handleGenerate}
+                                        disabled={generating || !recipient.trim()}
+                                        className="btn-classy-primary"
+                                        title={!recipient.trim() ? "Cannot generate draft without a recipient. Assign the task or mention a name in the title." : ""}
+                                    >
+                                        {generating ? 'Generating...' : 'Generate Draft'}
+                                    </button>
+                                </div>
                             </>
                         ) : (
                             <>
-                                <input
-                                    placeholder="Recipient name or email"
-                                    value={recipient}
-                                    onChange={e => setRecipient(e.target.value)}
-                                    style={{ width: '100%', padding: '0.5rem', marginBottom: '0.75rem' }}
-                                />
-                                <textarea
-                                    placeholder="Enter notes or description for the email"
-                                    rows={4}
-                                    value={notes}
-                                    onChange={e => setNotes(e.target.value)}
-                                />
-                                <button onClick={handleGenerate} disabled={generating || !notes.trim()} className="small-assign-btn">
-                                    {generating ? 'Generating...' : 'Generate Draft'}
-                                </button>
-                                <button onClick={() => setSelectedTask(null)} className="small-assign-btn">
-                                    Cancel
-                                </button>
+                                <div className="classy-form-group">
+                                    <label className="classy-label">Review & Edit Draft</label>
+                                    <textarea
+                                        className="classy-input"
+                                        rows={10}
+                                        value={draft}
+                                        onChange={e => setDraft(e.target.value)}
+                                    />
+                                </div>
+                                <div className="classy-actions" style={{ marginTop: '1rem' }}>
+                                    <button
+                                        onClick={() => emailSent ? setSelectedTask(null) : setDraft('')}
+                                        className="btn-classy-secondary"
+                                        disabled={sending}
+                                    >
+                                        {emailSent ? 'Close' : 'Back to Notes'}
+                                    </button>
+                                    <button
+                                        onClick={handleSend}
+                                        disabled={sending || emailSent || !draft.trim()}
+                                        className="btn-classy-primary"
+                                        style={{
+                                            backgroundColor: emailSent ? '#4ade80' : undefined,
+                                            borderColor: emailSent ? '#4ade80' : undefined,
+                                            cursor: emailSent ? 'not-allowed' : 'pointer'
+                                        }}
+                                    >
+                                        {sending ? 'Sending...' : emailSent ? 'Sent' : 'Send Email'}
+                                    </button>
+                                </div>
                             </>
                         )}
                     </div>

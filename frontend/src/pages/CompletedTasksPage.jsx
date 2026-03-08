@@ -35,7 +35,6 @@ const CompletedTasksPage = () => {
         return d.toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' });
     };
 
-    // pagination helpers
     const totalPages = Math.ceil(completedTasks.length / tasksPerPage);
     const pagedCompleted = completedTasks.slice((page - 1) * tasksPerPage, page * tasksPerPage);
 

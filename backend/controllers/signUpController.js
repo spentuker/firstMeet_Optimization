@@ -9,31 +9,31 @@ const signUp = async (req, res) => {
             return res.status(400).json({ message: "All fields including role are required" });
         }
 
-        // Validate role
+
         if (!['admin', 'employee'].includes(role)) {
             return res.status(400).json({ message: "Invalid role. Must be 'admin' or 'employee'" });
         }
 
-        // Check if user already exists
+
         const userExists = await User.findOne({ email });
         if (userExists) {
             return res.status(400).json({ message: "User already exists" });
         }
 
-        // Generate username: firstName.lastName
+
         const userName = `${firstName}.${lastName}`.toLowerCase();
 
-        // Check if username already exists (optional but recommended)
+
         const userNameExists = await User.findOne({ userName });
         if (userNameExists) {
             return res.status(400).json({ message: "Username already taken, please contact support or try a different name." });
         }
 
-        // Hash password
+
         const salt = await bcrypt.genSalt(10);
         const hashedPassword = await bcrypt.hash(password, salt);
 
-        // Create user
+
         const user = await User.create({
             firstName,
             lastName,
@@ -84,7 +84,7 @@ const updateUser = async (req, res) => {
         const { id } = req.params;
         const { firstName, lastName, email, role } = req.body;
 
-        // Only allow certain fields to be updated
+
         const updates = {};
         if (firstName) updates.firstName = firstName;
         if (lastName) updates.lastName = lastName;
@@ -107,4 +107,14 @@ const updateUser = async (req, res) => {
     }
 };
 
-module.exports = { signUp, getUserByUsername, updateUser };
+const getAllUsers = async (req, res) => {
+    try {
+        const users = await User.find({}).select("-password");
+        res.json(users);
+    } catch (error) {
+        console.error("Get All Users Error:", error);
+        res.status(500).json({ message: "Server Error", error: error.message });
+    }
+};
+
+module.exports = { signUp, getUserByUsername, updateUser, getAllUsers };

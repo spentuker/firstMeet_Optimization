@@ -10,7 +10,7 @@ const JiraPage = () => {
     const [selectedTask, setSelectedTask] = useState(null);
     const [jiraDetails, setJiraDetails] = useState({ summary: '', description: '' });
     const [showModal, setShowModal] = useState(false);
-    const [sendingTasks, setSendingTasks] = useState([]); // Track tasks being sent
+    const [sendingTasks, setSendingTasks] = useState([]);
 
     const userName = localStorage.getItem('userName');
 
@@ -58,7 +58,6 @@ const JiraPage = () => {
             });
 
             if (response.data.success) {
-                // Update the task in the local state
                 setTasks(prevTasks => prevTasks.map(t =>
                     t._id === selectedTask._id ? { ...t, jiraId: response.data.jiraId } : t
                 ));

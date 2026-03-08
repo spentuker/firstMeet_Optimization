@@ -1,7 +1,7 @@
 const Task = require("../models/tasks");
 const User = require("../models/user");
 
-// Create a new task (auto-saved as unassigned on generation)
+
 exports.createTask = async (req, res) => {
     try {
         const { title, userName, assignedTo, assignedBy, deadline, isAssigned, priority } = req.body;
@@ -22,7 +22,7 @@ exports.createTask = async (req, res) => {
     }
 };
 
-// Get unassigned tasks only for the user who created them
+
 exports.getUnassignedTasks = async (req, res) => {
     try {
         const { userName } = req.query;
@@ -35,18 +35,18 @@ exports.getUnassignedTasks = async (req, res) => {
     }
 };
 
-// Get tasks assigned to a specific user (by their userName)
+
 exports.getTasksByUser = async (req, res) => {
     try {
         const { username } = req.params;
-        const tasks = await Task.find({ assignedTo: username, isAssigned: true, isCompleted: { $ne: true } });
+        const tasks = await Task.find({ assignedTo: username, isAssigned: true, isCompleted: false });
         res.json(tasks);
     } catch (error) {
         res.status(500).json({ message: error.message });
     }
 };
 
-// Get tasks created/saved by a specific user
+
 exports.getTasksByCreator = async (req, res) => {
     try {
         const { userName } = req.params;
@@ -57,16 +57,15 @@ exports.getTasksByCreator = async (req, res) => {
     }
 };
 
-// Assign a task: resolve assignedToText to a real userName
+
 exports.assignTask = async (req, res) => {
     try {
         const { taskId } = req.params;
         const { assignedToText, assignedTo } = req.body;
-
-        let resolvedUserName = assignedTo; // fallback if directly passed
+        console.log(assignedToText, assignedTo);
+        let resolvedUserName = assignedTo;
 
         if (assignedToText) {
-            // Try to resolve "First Last" or "First.Last" to a DB userName
             const normalized = assignedToText.trim().replace(/\./g, ' ');
             const parts = normalized.split(/\s+/);
             const firstName = parts[0] || '';
@@ -95,7 +94,7 @@ exports.assignTask = async (req, res) => {
     }
 };
 
-// Mark a task as completed
+
 exports.completeTask = async (req, res) => {
     try {
         const { taskId } = req.params;
@@ -110,7 +109,7 @@ exports.completeTask = async (req, res) => {
     }
 };
 
-// Get completed tasks for a specific user
+
 exports.getCompletedTasks = async (req, res) => {
     try {
         const { username } = req.params;
@@ -121,7 +120,7 @@ exports.getCompletedTasks = async (req, res) => {
     }
 };
 
-// Delete a task by ID
+
 exports.deleteTask = async (req, res) => {
     try {
         const { taskId } = req.params;

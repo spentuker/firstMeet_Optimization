@@ -11,7 +11,6 @@ const HomePage = () => {
     const [meetings, setMeetings] = useState([]);
     const [expandedMeeting, setExpandedMeeting] = useState(null);
 
-    // pagination state
     const [assignedPage, setAssignedPage] = useState(1);
     const [unassignedPage, setUnassignedPage] = useState(1);
     const tasksPerPage = 10;
@@ -52,7 +51,7 @@ const HomePage = () => {
         fetchAll();
     }, [navigate]);
 
-    // ensure pages stay in bounds when data changes
+
     useEffect(() => {
         const total = Math.ceil(assignedTasks.length / tasksPerPage) || 1;
         if (assignedPage > total) setAssignedPage(total);
@@ -139,7 +138,6 @@ const HomePage = () => {
         return "Good Evening";
     };
 
-    // pagination helpers
     const assignedTotalPages = Math.ceil(assignedTasks.length / tasksPerPage);
     const unassignedTotalPages = Math.ceil(unassignedTasks.length / tasksPerPage);
     const pagedAssigned = assignedTasks.slice((assignedPage - 1) * tasksPerPage, assignedPage * tasksPerPage);
@@ -172,7 +170,7 @@ const HomePage = () => {
                                                     onClick={() => handleCompleteTask(task._id)}
                                                     title="Mark as completed"
                                                 >
-                                                    ✓ Complete
+                                                    Complete
                                                 </button>
                                             </li>
                                         ))}
@@ -297,4 +295,3 @@ const HomePage = () => {
 };
 
 export default HomePage;
-
