@@ -11,6 +11,7 @@ const meetingsRoute = require("./routes/meetingsRoute");
 const jiraRoutes = require("./routes/jiraRoutes");
 const emailRoutes = require("./routes/emailRoutes");
 const analyticsRoutes = require("./routes/analyticsRoutes");
+const chatRoutes      = require("./routes/chatRoutes");
 
 connectDB();
 
@@ -49,6 +50,7 @@ app.use("/api/meetings", meetingsRoute);
 app.use("/api/jira", jiraRoutes);
 app.use("/api/email", emailRoutes);
 app.use("/api/analytics", analyticsRoutes);
+app.use("/api/chat",      chatRoutes);
 
 app.get("/*path", (req, res) => {
   res.sendFile(path.join(__dirname, "frontend", "dist", "index.html"));

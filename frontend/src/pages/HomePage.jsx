@@ -2,6 +2,8 @@ import { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import api from '../api';
 import MainLayout from '../components/MainLayout';
+import { useChatMeeting } from '../context/ChatMeetingContext';
+import RecapEmailModal from '../components/RecapEmailModal';
 import '../styles/homePage.css';
 
 const HomePage = () => {
@@ -14,6 +16,13 @@ const HomePage = () => {
     const [assignedPage, setAssignedPage] = useState(1);
     const [unassignedPage, setUnassignedPage] = useState(1);
     const tasksPerPage = 10;
+
+    // History tab: multi-select + recap
+    const [selectMode, setSelectMode]         = useState(false);
+    const [selectedIds, setSelectedIds]       = useState(new Set());
+    const [showRecap, setShowRecap]           = useState(false);
+    const [recapMeetingId, setRecapMeetingId] = useState(null);
+    const { setPendingMeetings } = useChatMeeting();
 
     const navigate = useNavigate();
     const location = useLocation();
@@ -245,51 +254,115 @@ const HomePage = () => {
                         {meetings.length === 0 ? (
                             <p className="empty-msg">Your meeting history will appear here once transcripts are processed.</p>
                         ) : (
-                            <div className="task-list">
-                                {meetings.map(meeting => (
-                                    <div key={meeting._id} className="meeting-card">
-                                        <div className="meeting-card-header">
-                                            <div>
-                                                <strong>{meeting.title || "Untitled Meeting"}</strong>
-                                                <p className="meeting-date">{formatDate(meeting.createdAt)}</p>
-                                            </div>
-                                            <button
-                                                className="small-assign-btn"
-                                                onClick={() => setExpandedMeeting(expandedMeeting === meeting._id ? null : meeting._id)}
-                                            >
-                                                {expandedMeeting === meeting._id ? 'Close' : 'View Details'}
-                                            </button>
-                                        </div>
+                            <>
+                                {/* Toolbar */}
+                                <div className="history-toolbar">
+                                    <button
+                                        className={`small-assign-btn${selectMode ? ' active-select-btn' : ''}`}
+                                        onClick={() => { setSelectMode(v => !v); setSelectedIds(new Set()); }}
+                                    >
+                                        {selectMode ? '✕ Cancel' : '☑ Select'}
+                                    </button>
+                                    {selectMode && selectedIds.size > 0 && (
+                                        <button
+                                            className="ask-ai-meetings-btn"
+                                            onClick={() => {
+                                                const chosen = meetings.filter(m => selectedIds.has(m._id));
+                                                setPendingMeetings(chosen);
+                                                setSelectMode(false);
+                                                setSelectedIds(new Set());
+                                            }}
+                                        >
+                                            🤖 Ask AI about {selectedIds.size} meeting{selectedIds.size !== 1 ? 's' : ''} →
+                                        </button>
+                                    )}
+                                </div>
 
-                                        {expandedMeeting === meeting._id && (
-                                            <div className="meeting-details">
-                                                <h4>Executive Summary</h4>
-                                                <p style={{ whiteSpace: 'pre-wrap', fontSize: '0.9rem', color: 'var(--text-muted)' }}>
-                                                    {meeting.summary || "No summary available for this meeting."}
-                                                </p>
-                                                {meeting.actionItems?.length > 0 && (
-                                                    <>
-                                                        <h4>Action Items</h4>
-                                                        <ul className="action-item-list">
-                                                            {meeting.actionItems.map((item, i) => (
-                                                                <li key={i} style={{ fontSize: '0.9rem', marginBottom: '0.5rem', listStyle: 'inside disc', color: 'var(--text-muted)' }}>
-                                                                    <strong>{item.title}</strong>
-                                                                    {item.assignedTo && ` (Assigned: ${item.assignedTo})`}
-                                                                    {item.deadline && ` [Due: ${item.deadline}]`}
-                                                                </li>
-                                                            ))}
-                                                        </ul>
-                                                    </>
+                                <div className="task-list">
+                                    {meetings.map(meeting => {
+                                        const isSelected = selectedIds.has(meeting._id);
+                                        return (
+                                            <div
+                                                key={meeting._id}
+                                                className={`meeting-card${isSelected ? ' meeting-card-selected' : ''}`}
+                                                onClick={() => {
+                                                    if (selectMode) {
+                                                        setSelectedIds(prev => {
+                                                            const next = new Set(prev);
+                                                            next.has(meeting._id) ? next.delete(meeting._id) : next.add(meeting._id);
+                                                            return next;
+                                                        });
+                                                    }
+                                                }}
+                                            >
+                                                <div className="meeting-card-header">
+                                                    {selectMode && (
+                                                        <input
+                                                            type="checkbox"
+                                                            className="meeting-select-checkbox"
+                                                            checked={isSelected}
+                                                            readOnly
+                                                            onClick={e => e.stopPropagation()}
+                                                        />
+                                                    )}
+                                                    <div style={{ flex: 1 }}>
+                                                        <strong>{meeting.title || 'Untitled Meeting'}</strong>
+                                                        <p className="meeting-date">{formatDate(meeting.createdAt)}</p>
+                                                    </div>
+                                                    {!selectMode && (
+                                                        <button
+                                                            className="small-assign-btn"
+                                                            onClick={() => setExpandedMeeting(expandedMeeting === meeting._id ? null : meeting._id)}
+                                                        >
+                                                            {expandedMeeting === meeting._id ? 'Close' : 'View Details'}
+                                                        </button>
+                                                    )}
+                                                </div>
+
+                                                {!selectMode && expandedMeeting === meeting._id && (
+                                                    <div className="meeting-details">
+                                                        <h4>Executive Summary</h4>
+                                                        <p style={{ whiteSpace: 'pre-wrap', fontSize: '0.9rem', color: 'var(--text-muted)' }}>
+                                                            {meeting.summary || 'No summary available for this meeting.'}
+                                                        </p>
+                                                        {meeting.actionItems?.length > 0 && (
+                                                            <>
+                                                                <h4>Action Items</h4>
+                                                                <ul className="action-item-list">
+                                                                    {meeting.actionItems.map((item, i) => (
+                                                                        <li key={i} style={{ fontSize: '0.9rem', marginBottom: '0.5rem', listStyle: 'inside disc', color: 'var(--text-muted)' }}>
+                                                                            <strong>{item.title}</strong>
+                                                                            {item.assignedTo && ` (Assigned: ${item.assignedTo})`}
+                                                                            {item.deadline && ` [Due: ${item.deadline}]`}
+                                                                        </li>
+                                                                    ))}
+                                                                </ul>
+                                                            </>
+                                                        )}
+                                                        <button
+                                                            className="small-assign-btn"
+                                                            style={{ marginTop: '0.75rem' }}
+                                                            onClick={e => { e.stopPropagation(); setRecapMeetingId(meeting._id); setShowRecap(true); }}
+                                                        >
+                                                            📧 Send Recap Email
+                                                        </button>
+                                                    </div>
                                                 )}
                                             </div>
-                                        )}
-                                    </div>
-                                ))}
-                            </div>
+                                        );
+                                    })}
+                                </div>
+                            </>
                         )}
                     </div>
                 )}
             </div>
+            {showRecap && recapMeetingId && (
+                <RecapEmailModal
+                    meetingId={recapMeetingId}
+                    onClose={() => { setShowRecap(false); setRecapMeetingId(null); }}
+                />
+            )}
         </MainLayout>
     );
 };

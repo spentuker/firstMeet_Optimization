@@ -3,6 +3,9 @@ import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import api from '../api';
 import MainLayout from '../components/MainLayout';
+import { usePendingFile } from '../context/PendingFileContext';
+import { useChatMeeting } from '../context/ChatMeetingContext';
+import RecapEmailModal from '../components/RecapEmailModal';
 import '../styles/homePage.css';
 
 const MeetingPage = () => {
@@ -18,9 +21,13 @@ const MeetingPage = () => {
     const [liveTranscript, setLiveTranscript] = useState('');
     const [recordingError, setRecordingError] = useState('');
     const [recordingSeconds, setRecordingSeconds] = useState(0);
+    const [manualTranscript, setManualTranscript] = useState('');
+    const [showManual, setShowManual]             = useState(false);
     const recognitionRef     = useRef(null);
     const timerRef           = useRef(null);
     const finalTranscriptRef = useRef('');
+    const retryCountRef      = useRef(0);
+    const isStoppingRef      = useRef(false);
 
     // ── Meeting history + notepad state ──
     const [meetingHistory, setMeetingHistory]     = useState([]);
@@ -31,6 +38,27 @@ const MeetingPage = () => {
     const [noteSaved, setNoteSaved]               = useState(false);
     const noteSaveTimer                           = useRef(null);
     const userName = localStorage.getItem('userName');
+    const { pendingFile, setPendingFile, pendingTitle } = usePendingFile();
+    const { setPendingMeetings } = useChatMeeting();
+
+    // Meeting history multi-select + recap state
+    const [selectMode, setSelectMode]           = useState(false);
+    const [selectedIds, setSelectedIds]         = useState(new Set());
+    const [showRecap, setShowRecap]             = useState(false);
+    const [recapMeetingId, setRecapMeetingId]   = useState(null);
+    const [savedMeetingId, setSavedMeetingId]   = useState(null);
+
+    // Auto-trigger if a file was handed off from the ChatAgent
+    useEffect(() => {
+        if (!pendingFile) return;
+        const f = pendingFile;
+        setPendingFile(null);           // consume immediately so it doesn't re-trigger
+        setFile(f);
+        if (pendingTitle) setMeetingTitle(pendingTitle);
+        // Small delay to ensure state is settled before triggering submit
+        setTimeout(() => onSubmit(f), 150);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, []);
 
     // Fetch meeting history on mount
     useEffect(() => {
@@ -225,12 +253,16 @@ const MeetingPage = () => {
 
             if (userName) {
                 try {
-                    await api.post('/api/meetings', {
+                    const savedMeeting = await api.post('/api/meetings', {
                         title: meetingTitle || "Untitled Meeting",
                         userName,
                         summary: summaryText.trim(),
                         actionItems: finalItems,
                     });
+                    setSavedMeetingId(savedMeeting.data._id);
+                    // Refresh history list
+                    const histRes = await api.get(`/api/meetings/${encodeURIComponent(userName)}`);
+                    setMeetingHistory(histRes.data || []);
                 } catch (err) {
                     console.error("Failed to save meeting to history:", err);
                 }
@@ -280,42 +312,90 @@ const MeetingPage = () => {
     const startRecording = () => {
         const SpeechRec = window.SpeechRecognition || window.webkitSpeechRecognition;
         if (!SpeechRec) {
-            setRecordingError('Speech recognition is not supported in this browser. Please use Chrome or Edge.');
+            setRecordingError('');
+            setShowManual(true);
             return;
         }
-        const recognition = new SpeechRec();
-        recognition.continuous    = true;
-        recognition.interimResults = true;
-        recognition.lang          = 'en-US';
+        retryCountRef.current  = 0;
+        isStoppingRef.current  = false;
         finalTranscriptRef.current = '';
-
-        recognition.onresult = (event) => {
-            let interim = '';
-            for (let i = event.resultIndex; i < event.results.length; i++) {
-                if (event.results[i].isFinal) {
-                    finalTranscriptRef.current += event.results[i][0].transcript + ' ';
-                } else {
-                    interim += event.results[i][0].transcript;
-                }
-            }
-            setLiveTranscript(finalTranscriptRef.current + interim);
-        };
-        recognition.onerror = (e) => setRecordingError(`Recognition error: ${e.error}`);
-        recognition.onend   = () => { setIsRecording(false); clearInterval(timerRef.current); };
-
-        recognition.start();
-        recognitionRef.current = recognition;
         setIsRecording(true);
         setLiveTranscript('');
         setRecordingError('');
+        setShowManual(false);
         setRecordingSeconds(0);
         timerRef.current = setInterval(() => setRecordingSeconds(s => s + 1), 1000);
+
+        const launch = () => {
+            const recognition = new SpeechRec();
+            recognition.continuous     = true;
+            recognition.interimResults = true;
+            recognition.lang           = 'en-US';
+
+            recognition.onresult = (event) => {
+                let interim = '';
+                for (let i = event.resultIndex; i < event.results.length; i++) {
+                    if (event.results[i].isFinal) {
+                        finalTranscriptRef.current += event.results[i][0].transcript + ' ';
+                    } else {
+                        interim += event.results[i][0].transcript;
+                    }
+                }
+                setLiveTranscript(finalTranscriptRef.current + interim);
+            };
+
+            recognition.onerror = (e) => {
+                if (e.error === 'network' || e.error === 'no-speech') return; // handled in onend
+                const msgs = {
+                    'not-allowed':         '🎤 Microphone access denied — allow it in browser settings.',
+                    'audio-capture':       '🎤 No microphone detected. Please connect one.',
+                    'service-not-allowed': 'Speech service not permitted on this page.',
+                };
+                setRecordingError(msgs[e.error] || `Recognition error: ${e.error}`);
+                isStoppingRef.current = true;
+            };
+
+            recognition.onend = () => {
+                if (isStoppingRef.current) {
+                    setIsRecording(false);
+                    clearInterval(timerRef.current);
+                } else if (retryCountRef.current < 2) {
+                    // Retry up to 2 times silently
+                    retryCountRef.current++;
+                    setTimeout(() => {
+                        if (!isStoppingRef.current) recognitionRef.current = launch();
+                    }, 1000);
+                } else {
+                    // Fall back to manual textarea
+                    setIsRecording(false);
+                    clearInterval(timerRef.current);
+                    setShowManual(true);
+                    setRecordingError('');
+                }
+            };
+
+            try { recognition.start(); } catch {}
+            return recognition;
+        };
+
+        recognitionRef.current = launch();
     };
 
     const stopRecording = () => {
+        isStoppingRef.current = true;
         if (recognitionRef.current) recognitionRef.current.stop();
         clearInterval(timerRef.current);
         setIsRecording(false);
+    };
+
+    const analyzeManual = async () => {
+        const text = manualTranscript.trim();
+        if (!text) { alert('Please type or paste your meeting transcript first.'); return; }
+        const blob = new Blob([text], { type: 'text/plain' });
+        const f    = new File([blob], 'manual-transcript.txt', { type: 'text/plain' });
+        setManualTranscript('');
+        setShowManual(false);
+        await onSubmit(f);
     };
 
     const analyzeRecording = async () => {
@@ -382,6 +462,18 @@ const MeetingPage = () => {
                             </button>
                         )}
 
+                        {!isRecording && !showManual && (
+                            <button
+                                type="button"
+                                className="btn-record"
+                                style={{ background: 'none', border: '1px solid var(--border-color)', color: 'var(--text-muted)', fontSize: '0.82rem', padding: '0.5rem 1rem' }}
+                                onClick={() => { setShowManual(true); setRecordingError(''); }}
+                                disabled={loading}
+                            >
+                                ✍️ Type transcript instead
+                            </button>
+                        )}
+
                         {liveTranscript && !isRecording && (
                             <button
                                 className="btn-primary"
@@ -405,6 +497,33 @@ const MeetingPage = () => {
                         <div className="transcript-box">
                             <label className="label-main">Live Transcript</label>
                             <div className="transcript-text">{liveTranscript}</div>
+                        </div>
+                    )}
+
+                    {/* Manual transcript fallback */}
+                    {showManual && (
+                        <div className="transcript-box" style={{ marginTop: '1rem' }}>
+                            <label className="label-main">📝 Paste or type your meeting transcript</label>
+                            <textarea
+                                className="input-field"
+                                rows={8}
+                                style={{ resize: 'vertical', fontFamily: 'inherit', lineHeight: '1.55', marginTop: '0.5rem' }}
+                                placeholder="Paste your meeting transcript here, then click Analyze..."
+                                value={manualTranscript}
+                                onChange={(e) => setManualTranscript(e.target.value)}
+                            />
+                            <div style={{ display: 'flex', gap: '0.75rem', marginTop: '0.75rem' }}>
+                                <button className="btn-primary" onClick={analyzeManual} disabled={loading || !manualTranscript.trim()}>
+                                    {loading ? 'Analyzing...' : '✨ Analyze Transcript'}
+                                </button>
+                                <button
+                                    type="button"
+                                    style={{ background: 'none', border: '1px solid var(--border-color)', color: 'var(--text-muted)', borderRadius: 'var(--radius-sm)', padding: '0.5rem 1rem', cursor: 'pointer', fontSize: '0.82rem' }}
+                                    onClick={() => { setShowManual(false); setManualTranscript(''); }}
+                                >
+                                    Cancel
+                                </button>
+                            </div>
                         </div>
                     )}
 
@@ -452,32 +571,94 @@ const MeetingPage = () => {
                                 ))}
                             </div>
                         </div>
+                        {savedMeetingId && (
+                            <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '1rem' }}>
+                                <button
+                                    className="small-assign-btn"
+                                    onClick={() => { setRecapMeetingId(savedMeetingId); setShowRecap(true); }}
+                                >
+                                    📧 Send Recap Email
+                                </button>
+                            </div>
+                        )}
                     </div>
                 )}
 
                 {/* ── Meeting History ── */}
                 {meetingHistory.length > 0 && (
                     <div className="task-box glass-card" style={{ marginTop: '2rem' }}>
-                        <h3 style={{ borderBottom: '1px solid var(--glass-border)', paddingBottom: '1rem', marginBottom: '1.25rem', color: 'var(--accent-color)' }}>
-                            📋 Meeting History
-                        </h3>
+                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderBottom: '1px solid var(--glass-border)', paddingBottom: '1rem', marginBottom: '1.25rem' }}>
+                            <h3 style={{ color: 'var(--accent-color)', margin: 0 }}>📋 Meeting History</h3>
+                            <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+                                {selectMode && selectedIds.size > 0 && (
+                                    <button
+                                        className="ask-ai-meetings-btn"
+                                        onClick={() => {
+                                            const chosen = meetingHistory.filter(m => selectedIds.has(m._id));
+                                            setPendingMeetings(chosen);
+                                            setSelectMode(false);
+                                            setSelectedIds(new Set());
+                                        }}
+                                    >
+                                        🤖 Ask AI about {selectedIds.size} →
+                                    </button>
+                                )}
+                                <button
+                                    className={`small-assign-btn${selectMode ? ' active-select-btn' : ''}`}
+                                    onClick={() => { setSelectMode(v => !v); setSelectedIds(new Set()); }}
+                                >
+                                    {selectMode ? '✕ Cancel' : '☑ Select'}
+                                </button>
+                            </div>
+                        </div>
                         <div className="meeting-history-list">
-                            {meetingHistory.map(m => (
-                                <div key={m._id} className="meeting-history-row" onClick={() => openMeeting(m)} role="button">
-                                    <div style={{ flex: 1, minWidth: 0 }}>
-                                        <div className="urgent-task-title" style={{ marginBottom: '0.2rem' }}>{m.title}</div>
-                                        <div className="urgent-task-meta">
-                                            {(m.actionItems || []).length} action items · {new Date(m.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+                            {meetingHistory.map(m => {
+                                const isSelected = selectedIds.has(m._id);
+                                return (
+                                    <div
+                                        key={m._id}
+                                        className={`meeting-history-row${isSelected ? ' meeting-card-selected' : ''}`}
+                                        onClick={() => {
+                                            if (selectMode) {
+                                                setSelectedIds(prev => {
+                                                    const next = new Set(prev);
+                                                    next.has(m._id) ? next.delete(m._id) : next.add(m._id);
+                                                    return next;
+                                                });
+                                            } else {
+                                                openMeeting(m);
+                                            }
+                                        }}
+                                        role="button"
+                                    >
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', flex: 1, minWidth: 0 }}>
+                                            {selectMode && (
+                                                <input
+                                                    type="checkbox"
+                                                    className="meeting-select-checkbox"
+                                                    checked={isSelected}
+                                                    readOnly
+                                                    onClick={e => e.stopPropagation()}
+                                                />
+                                            )}
+                                            <div style={{ flex: 1, minWidth: 0 }}>
+                                                <div className="urgent-task-title" style={{ marginBottom: '0.2rem' }}>{m.title}</div>
+                                                <div className="urgent-task-meta">
+                                                    {(m.actionItems || []).length} action items · {new Date(m.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+                                                </div>
+                                            </div>
                                         </div>
-                                    </div>
-                                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', flexShrink: 0 }}>
-                                        {(m.notes || []).some(n => n.userName === userName && n.content?.trim()) && (
-                                            <span className="note-badge" title="Has your notes">📝</span>
+                                        {!selectMode && (
+                                            <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', flexShrink: 0 }}>
+                                                {(m.notes || []).some(n => n.userName === userName && n.content?.trim()) && (
+                                                    <span className="note-badge" title="Has your notes">📝</span>
+                                                )}
+                                                <span style={{ color: 'var(--text-muted)', fontSize: '0.85rem' }}>Open →</span>
+                                            </div>
                                         )}
-                                        <span style={{ color: 'var(--text-muted)', fontSize: '0.85rem' }}>Open →</span>
                                     </div>
-                                </div>
-                            ))}
+                                );
+                            })}
                         </div>
                     </div>
                 )}
@@ -492,7 +673,15 @@ const MeetingPage = () => {
                                     <h2 className="notepad-modal-title">{selectedMeeting.title}</h2>
                                     <span className="urgent-task-meta">{new Date(selectedMeeting.createdAt).toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' })}</span>
                                 </div>
-                                <button className="notepad-close-btn" onClick={closeMeetingModal}>✕</button>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                                    <button
+                                        className="small-assign-btn"
+                                        onClick={() => { setRecapMeetingId(selectedMeeting._id); setShowRecap(true); }}
+                                    >
+                                        📧 Send Recap
+                                    </button>
+                                    <button className="notepad-close-btn" onClick={closeMeetingModal}>✕</button>
+                                </div>
                             </div>
 
                             {/* Two-column body */}
@@ -566,6 +755,12 @@ const MeetingPage = () => {
                     </div>
                 )}
             </div>
+            {showRecap && recapMeetingId && (
+                <RecapEmailModal
+                    meetingId={recapMeetingId}
+                    onClose={() => { setShowRecap(false); setRecapMeetingId(null); }}
+                />
+            )}
         </MainLayout>
     );
 };

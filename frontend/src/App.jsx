@@ -8,8 +8,10 @@ import JiraPage from './pages/JiraPage';
 import CompletedTasksPage from './pages/CompletedTasksPage';
 import EmailPage from './pages/EmailPage';
 import DashboardPage from './pages/DashboardPage';
+import ChatAgent from './components/ChatAgent.jsx';
 import { ThemeProvider } from './context/ThemeContext';
-import ThemeToggle from './components/ThemeToggle';
+import { PendingFileProvider } from './context/PendingFileContext';
+import { ChatMeetingProvider } from './context/ChatMeetingContext';
 import './App.css';
 
 // Page transition wrapper — fades/slides on route change
@@ -27,33 +29,47 @@ function AnimatedRoutes() {
       el.style.opacity = '1';
       el.style.transform = 'translateY(0)';
     });
-    return () => cancelAnimationFrame(raf);
+    // Clear the transform after animation so position:fixed children
+    // (e.g. sidebar) remain anchored to the viewport, not this div.
+    const cleanup = setTimeout(() => {
+      if (!el) return;
+      el.style.transform = '';
+      el.style.transition = '';
+    }, 380);
+    return () => { cancelAnimationFrame(raf); clearTimeout(cleanup); };
   }, [location.pathname]);
 
   return (
-    <div ref={containerRef} style={{ minHeight: '100vh' }}>
-      <Routes location={location}>
-        <Route path="/signin" element={<SignInPage />} />
-        <Route path="/signup" element={<SignUpPage />} />
-        <Route path="/home" element={<HomePage />} />
-        <Route path="/meeting" element={<MeetingPage />} />
-        <Route path="/completed" element={<CompletedTasksPage />} />
-        <Route path="/jira" element={<JiraPage />} />
-        <Route path="/email" element={<EmailPage />} />
-        <Route path="/analytics" element={<DashboardPage />} />
-        <Route path="/" element={<Navigate to="/signin" replace />} />
-      </Routes>
-    </div>
+    <>
+      <div ref={containerRef} style={{ minHeight: '100vh' }}>
+        <Routes location={location}>
+          <Route path="/signin" element={<SignInPage />} />
+          <Route path="/signup" element={<SignUpPage />} />
+          <Route path="/home" element={<HomePage />} />
+          <Route path="/meeting" element={<MeetingPage />} />
+          <Route path="/completed" element={<CompletedTasksPage />} />
+          <Route path="/jira" element={<JiraPage />} />
+          <Route path="/email" element={<EmailPage />} />
+          <Route path="/analytics" element={<DashboardPage />} />
+          <Route path="/" element={<Navigate to="/signin" replace />} />
+        </Routes>
+      </div>
+      {/* ChatAgent lives OUTSIDE the route container so it never unmounts on navigation */}
+      <ChatAgent />
+    </>
   );
 }
 
 function App() {
   return (
     <ThemeProvider>
-      <Router>
-        <ThemeToggle />
-        <AnimatedRoutes />
-      </Router>
+      <PendingFileProvider>
+        <ChatMeetingProvider>
+          <Router>
+            <AnimatedRoutes />
+          </Router>
+        </ChatMeetingProvider>
+      </PendingFileProvider>
     </ThemeProvider>
   );
 }

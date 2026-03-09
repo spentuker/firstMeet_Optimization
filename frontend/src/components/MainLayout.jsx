@@ -1,5 +1,8 @@
+import { useState } from 'react';
+import { createPortal } from 'react-dom';
 import { useNavigate, useLocation } from 'react-router-dom';
 import '../styles/homePage.css';
+import { useTheme } from '../context/ThemeContext';
 
 /* ─── Heroicons outline SVGs (inline, 18×18) ─── */
 const Icons = {
@@ -38,12 +41,70 @@ const NAV_ITEMS = [
     { label: 'Email',      path: '/email',       icon: Icons.email },
 ];
 
+// ─── About Modal ──────────────────────────────────────────────────────────────────────────────
+const ABOUT_FEATURES = [
+    { title: '🤖 AI Meeting Minutes',        color: '#0D99FF', items: ['Upload TXT/DOCX transcripts → AI summary in seconds', 'Speaker attribution, key decisions extracted', 'Action items with HIGH / MEDIUM / LOW priority scoring'] },
+    { title: '🎤 Live Meeting Recorder',     color: '#30D158', items: ['Real-time speech-to-text during live meetings', 'Full transcript captured and auto-analyzed on demand', 'Retry-resilient: auto-reconnects on network blips'] },
+    { title: '✅ Smart Task Management',     color: '#FF9F0A', items: ['Tasks auto-created from meeting action items', 'Assign to members with deadlines & priority', 'Full lifecycle: Pending → Assigned → Completed'] },
+    { title: '📊 Analytics Dashboard',       color: '#BF5AF2', items: ['Personal: focus score, productivity heatmap, streak', 'Admin team view: performance matrix, velocity charts', 'KPIs: completion rate, monthly growth, effectiveness'] },
+    { title: '💬 FirstMeet AI Chat',         color: '#5AC8FA', items: ['Persistent AI assistant across all pages (never resets)', 'Meeting Q&A — ask targeted questions per meeting', 'Document Q&A — upload a file and chat with it', 'AI weekly digest for admins'] },
+    { title: '🔗 Integrations',              color: '#FF453A', items: ['Jira — sync action items to your Jira board', 'Email — send meeting summaries & tasks directly'] },
+    { title: '📝 Notes & Collaboration',    color: '#32ADE6', items: ['Personal Markdown-enabled notes per meeting', 'Auto-save with 800 ms debounce'] },
+    { title: '🎨 Design & UX',              color: '#64D2FF', items: ['Dark / Light theme with manual toggle', 'Animated page transitions & responsive layout', 'Chat history persisted in MongoDB across sessions'] },
+];
+
+const TECH_STACK = ['React 18', 'Vite', 'Node.js', 'Express', 'MongoDB Atlas', 'Mongoose', 'HuggingFace Qwen-72B', 'Web Speech API', 'Recharts', 'Jira REST API', 'EmailJS', 'Mammoth.js', 'React Router v6'];
+
+const AboutModal = ({ onClose }) => createPortal(
+    <div className="about-overlay" onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}>
+        <div className="about-modal">
+            {/* Minimal Header */}
+            <div className="about-hero">
+                <div className="about-hero-inner">
+                    <div className="about-hero-logo">M</div>
+                    <div>
+                        <h2>FirstMeet</h2>
+                        <p>An end-to-end intelligent meeting management platform. Upload transcripts or record live
+                        meetings, get AI-generated summaries &amp; action items, manage tasks, visualize team
+                        performance, and chat with your meeting data — all in one product.</p>
+                    </div>
+                </div>
+                <button type="button" className="about-close" onClick={onClose}>✕</button>
+            </div>
+
+            {/* Feature Cards */}
+            <div className="about-body">
+                <div className="about-features-grid">
+                    {ABOUT_FEATURES.map((f, i) => (
+                        <div key={i} className="about-feature-card" style={{ '--fc-color': f.color }}>
+                            <h4>{f.title}</h4>
+                            <ul>{f.items.map((item, j) => <li key={j}>{item}</li>)}</ul>
+                        </div>
+                    ))}
+                </div>
+
+                {/* Tech Stack */}
+                <div className="about-tech-section">
+                    <div className="about-tech-label">Tech Stack</div>
+                    <div className="about-tech-pills">
+                        {TECH_STACK.map((t, i) => <span key={i} className="about-tech-pill">{t}</span>)}
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>,
+    document.body
+);
+
 const MainLayout = ({ children, activeTab, setActiveTab }) => {
     const navigate = useNavigate();
     const location = useLocation();
     const userName = localStorage.getItem('userName');
     const userRole = localStorage.getItem('userRole');
     const isEmployee = userRole === 'employee';
+    const { theme, toggleTheme } = useTheme();
+    const isDark = theme === 'dark';
+    const [showAbout, setShowAbout] = useState(false);
 
     const handleLogout = () => {
         localStorage.removeItem('userName');
@@ -71,12 +132,21 @@ const MainLayout = ({ children, activeTab, setActiveTab }) => {
     };
 
     return (
+        <>
         <div className="home-layout">
             <aside className="sidebar">
                 {/* Brand */}
                 <div className="sidebar-brand">
                     <div className="sidebar-logo-mark">M</div>
                     <span className="sidebar-title">MeetUp</span>
+                    <button
+                        type="button"
+                        className="sidebar-info-btn"
+                        onClick={() => setShowAbout(true)}
+                        title="About FirstMeet"
+                    >
+                        i
+                    </button>
                 </div>
 
                 {/* Navigation */}
@@ -110,6 +180,20 @@ const MainLayout = ({ children, activeTab, setActiveTab }) => {
 
                 {/* Footer */}
                 <div className="sidebar-footer">
+                    {/* Theme Toggle */}
+                    <button className="nav-item sidebar-theme-toggle" onClick={toggleTheme}>
+                        <span className="nav-icon">
+                            {isDark
+                                ? <svg viewBox="0 0 24 24"><path d="M12 3v1m0 16v1M4.22 4.22l.707.707m12.728 12.728.707.707M1 12h1m18 0h1M4.22 19.78l.707-.707M18.364 5.636l.707-.707M16 12a4 4 0 11-8 0 4 4 0 018 0z"/></svg>
+                                : <svg viewBox="0 0 24 24"><path d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z"/></svg>
+                            }
+                        </span>
+                        <span>{isDark ? 'Light Mode' : 'Dark Mode'}</span>
+                        <div className="stt-track">
+                            <div className="stt-thumb" />
+                        </div>
+                    </button>
+
                     <div className="sidebar-user">
                         <div className="user-avatar">{userName?.charAt(0).toUpperCase()}</div>
                         <span className="user-name">{userName}</span>
@@ -125,6 +209,8 @@ const MainLayout = ({ children, activeTab, setActiveTab }) => {
                 {children}
             </main>
         </div>
+        {showAbout && <AboutModal onClose={() => setShowAbout(false)} />}
+        </>
     );
 };
 

@@ -6,6 +6,7 @@ import {
     Radar, RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis
 } from 'recharts';
 import MainLayout from '../components/MainLayout';
+import { getGreeting } from '../utils/greetings';
 import '../styles/dashboard.css';
 
 // ─── Animated counter hook ───────────────────────────────────────────────────
@@ -26,19 +27,6 @@ function useCountUp(target, duration = 1200) {
     }, [target, duration]);
     return count;
 }
-
-// ─── Greeting ────────────────────────────────────────────────────────────────
-const GREETINGS = {
-    morning:   [(n) => `Good morning, ${n}! ☀️`, (n) => `Rise and shine, ${n}!`, (n) => `Morning, ${n}! 💪`],
-    afternoon: [(n) => `Good afternoon, ${n}! 🚀`, (n) => `Hey ${n}! 🎯`, (n) => `Afternoon, ${n}! ⚡`],
-    evening:   [(n) => `Good evening, ${n}! 🌙`, (n) => `Evening, ${n}! 🌆`, (n) => `Hey ${n}! 🦉`],
-    night:     [(n) => `Still at it, ${n}? 🌌`, (n) => `Late-night grind, ${n}! 💡`, (n) => `Burning midnight oil, ${n}! 🔥`],
-};
-const getGreeting = (name) => {
-    const h = new Date().getHours();
-    const pool = h >= 5 && h < 12 ? GREETINGS.morning : h >= 12 && h < 18 ? GREETINGS.afternoon : h >= 18 && h < 22 ? GREETINGS.evening : GREETINGS.night;
-    return pool[Math.floor(Math.random() * pool.length)](name || 'there');
-};
 
 // ─── Theme-aligned color palette ─────────────────────────────────────────────
 const C = {
@@ -114,6 +102,125 @@ const CustomTooltip = ({ active, payload, label }) => {
 const axisStyle = { fontSize: 10, fill: 'var(--text-muted)', fontWeight: 600, fontFamily: 'Inter' };
 const RANK_BADGES = ['🥇', '🥈', '🥉'];
 const RANGES = [{ label: 'Last 7d', value: '7' }, { label: 'Last 30d', value: '30' }, { label: 'Last 90d', value: '90' }, { label: 'All time', value: 'all' }];
+
+// ─── Wins Helpers ────────────────────────────────────────────────────────────
+const computeTeamWins = (stats) => {
+    const completedThisWeek = stats.charts.teamVelocity?.at(-1)?.completed ?? 0;
+    const rate    = stats.kpis.completionRate ?? 0;
+    const meetings = stats.kpis.totalMeetings ?? 0;
+    const top     = stats.charts.memberMatrix?.[0];
+    const wins = [
+        {
+            icon: '✅',
+            value: completedThisWeek,
+            label: 'Tasks Completed This Week',
+            message: completedThisWeek > 10 ? 'Incredible output — crushing it! 🚀' : completedThisWeek > 0 ? 'Good momentum — keep going! 💪' : 'Every big sprint starts with one task.',
+            color: '#30D158',
+        },
+        {
+            icon: rate >= 70 ? '🔥' : rate >= 40 ? '📈' : '💪',
+            value: `${rate}%`,
+            label: 'Team Completion Rate',
+            message: rate >= 70 ? 'Outstanding — team is firing on all cylinders!' : rate >= 40 ? 'Solid progress — almost there!' : 'Room to grow — keep pushing together!',
+            color: rate >= 70 ? '#30D158' : rate >= 40 ? '#FF9F0A' : '#FF453A',
+        },
+        {
+            icon: '📅',
+            value: meetings,
+            label: 'Total Meetings Held',
+            message: meetings > 5 ? 'Great team collaboration happening!' : meetings > 0 ? 'Good cadence — keep meeting up!' : 'Schedule your first meeting!',
+            color: '#0D99FF',
+        },
+    ];
+    if (top && top.completed > 0) wins.push({
+        icon: '🥇',
+        value: `${top.ratio}%`,
+        label: `MVP: ${top.name}`,
+        message: `Completed ${top.completed} tasks — leading by example!`,
+        color: '#FF9F0A',
+    });
+    return wins;
+};
+
+const computePersonalWins = (stats) => {
+    const completedThisWeek = stats.kpis.completedThisWeek  ?? 0;
+    const focusScore        = stats.kpis.personalFocusScore ?? 0;
+    const streak            = stats.kpis.streak             ?? 0;
+    const meetings          = stats.kpis.meetingsAttended   ?? 0;
+    return [
+        {
+            icon: '✅',
+            value: completedThisWeek,
+            label: 'Tasks Completed This Week',
+            message: completedThisWeek > 5 ? "You're on fire — amazing productivity! 🚀" : completedThisWeek > 0 ? 'Great start — keep the momentum! 💪' : 'Today is a great day to start!',
+            color: '#30D158',
+        },
+        {
+            icon: '🎯',
+            value: `${focusScore}%`,
+            label: 'Weekly Focus Score',
+            message: focusScore >= 80 ? 'Laser-focused — exceptional work!' : focusScore >= 50 ? 'Solid focus this week!' : "Stay sharp — you've got this!",
+            color: focusScore >= 70 ? '#30D158' : focusScore >= 40 ? '#FF9F0A' : '#FF453A',
+        },
+        {
+            icon: '🔥',
+            value: streak,
+            label: 'Active Days',
+            message: streak >= 5 ? 'Unstoppable consistency — wow!' : streak >= 3 ? 'Building great habits!' : 'Start your winning streak today!',
+            color: streak >= 3 ? '#FF9F0A' : '#0D99FF',
+        },
+        {
+            icon: '📅',
+            value: meetings,
+            label: 'Meetings Attended',
+            message: meetings > 0 ? 'Well-engaged with your team!' : 'Connect with your team today!',
+            color: '#BF5AF2',
+        },
+    ];
+};
+
+const StatsTicker = ({ stats, isTeam }) => {
+    const wins = isTeam ? computeTeamWins(stats) : computePersonalWins(stats);
+    const [idx, setIdx]       = useState(0);
+    const [visible, setVisible] = useState(true);
+
+    useEffect(() => {
+        if (wins.length <= 1) return;
+        const interval = setInterval(() => {
+            setVisible(false);
+            setTimeout(() => {
+                setIdx(i => (i + 1) % wins.length);
+                setVisible(true);
+            }, 380);
+        }, 3800);
+        return () => clearInterval(interval);
+    }, [wins.length]);
+
+    if (!wins.length) return null;
+    const w = wins[idx];
+    return (
+        <div className="stats-ticker">
+            <span className="ticker-dot" style={{ background: w.color }} />
+            <span className={`ticker-text${visible ? ' tk-show' : ''}`} style={{ color: w.color }}>
+                {w.value}
+            </span>
+            <span className={`ticker-msg${visible ? ' tk-show' : ''}`}>
+                {w.label}
+                <span className="ticker-sub"> — {w.message}</span>
+            </span>
+            <div className="ticker-pips">
+                {wins.map((_, i) => (
+                    <button
+                        key={i}
+                        type="button"
+                        className={`ticker-pip${i === idx ? ' active' : ''}`}
+                        onClick={() => { setIdx(i); setVisible(true); }}
+                    />
+                ))}
+            </div>
+        </div>
+    );
+};
 
 // ─── Main Component ──────────────────────────────────────────────────────────
 const DashboardPage = () => {
@@ -248,6 +355,9 @@ const DashboardPage = () => {
                         </>
                     )}
                 </div>
+
+                {/* ── Stats Ticker ── */}
+                <StatsTicker stats={stats} isTeam={isAdmin && viewMode === 'team'} />
 
                 {/* ── Charts Grid ── */}
                 <div className="dashboard-grid">
